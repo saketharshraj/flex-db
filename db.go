@@ -6,23 +6,46 @@ import (
 	"io"
 	"os"
 	"sync"
+	"time"
 )
 
 type FlexDB struct {
-	data map[string]string
-	lock sync.RWMutex
-	file string
+	data       map[string]string
+	lock       sync.RWMutex
+	file       string
+	writeQueue chan struct{}
 }
 
 // NewFlexDB initializes DB and loads data from disk
 func NewFlexDB(filename string) *FlexDB {
 	db := &FlexDB{
-		data: make(map[string]string),
-		file: filename,
+		data:       make(map[string]string),
+		file:       filename,
+		writeQueue: make(chan struct{}, 100),
 	}
 
 	db.load()
+	go db.writeLoop()
 	return db
+}
+
+func (db *FlexDB) writeLoop() {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-db.writeQueue:
+			select {
+			case <-time.After(500 * time.Millisecond):
+				db.save()
+			case <-db.writeQueue:
+				db.save()
+			}
+		case <-ticker.C:
+			db.save()
+		}
+	}
 }
 
 // load reads data from the file into memory
@@ -42,9 +65,19 @@ func (db *FlexDB) load() {
 	bytes, _ := io.ReadAll(file)
 	json.Unmarshal(bytes, &db.data)
 }
+func (db *FlexDB) triggerWrite() {
+	select {
+	case db.writeQueue <- struct{}{}:
+		// successfully queued
+	default:
+		// queue is full — skip
+	}
+}
 
 // save writes data to disk
 func (db *FlexDB) save() {
+	db.lock.RLock()
+	defer db.lock.RUnlock()
 	bytes, _ := json.MarshalIndent(db.data, "", "  ")
 	_ = os.WriteFile(db.file, bytes, 0644)
 }
@@ -55,7 +88,7 @@ func (db *FlexDB) Set(key, value string) {
 	defer db.lock.Unlock()
 
 	db.data[key] = value
-	db.save()
+	db.triggerWrite()
 }
 
 // Get value by key
@@ -79,7 +112,7 @@ func (db *FlexDB) Delete(key string) error {
 		return errors.New("key not found")
 	}
 	delete(db.data, key)
-	db.save()
+	db.triggerWrite()
 	return nil
 }
 
@@ -94,3 +127,9 @@ func (db *FlexDB) All() map[string]string {
 	}
 	return copy
 }
+
+func (db *FlexDB) Flush() {
+	db.save()
+}
+
+
