@@ -83,3 +83,11 @@ func handleConnection(conn net.Conn, db *FlexDB) {
 		writer.Flush()
 	}
 }
+
+
+func handleConnectionWithLogs(conn net.Conn, db *FlexDB, addr string) {
+	defer func() {
+		fmt.Printf("[-] Client disconnected: %s\n", addr)
+	}()
+	handleConnection(conn, db)
+}

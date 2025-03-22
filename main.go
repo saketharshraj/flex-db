@@ -20,6 +20,10 @@ func main() {
 			fmt.Println("Connection error:", err)
 			continue
 		}
-		go handleConnection(conn, db)
+
+		addr := conn.RemoteAddr().String()
+		fmt.Printf("[+] Client connected: %s\n", addr)
+
+		go handleConnectionWithLogs(conn, db, addr)
 	}
 }
