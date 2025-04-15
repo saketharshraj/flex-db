@@ -1,81 +1,161 @@
 # 🚀 FlexDB
 
-**FlexDB** is a lightweight, in-memory NoSQL key-value store written in pure Go, with a TCP interface and persistent disk storage. It's designed for learning, benchmarking, and exploring what it takes to build a database from scratch.
+A lightweight Redis-like in-memory database with persistence, written in Go.
 
-## 💡 Features
 
-- 🧠 In-memory key-value storage using Go maps
-- 📦 Persistent disk writes using JSON
-- ⏳ Buffered write queue to reduce I/O overhead
-- ⚡ Fast and concurrent TCP server
-- 🛠 Minimal external dependencies (zero libraries used)
-- 📊 Benchmarking suite to test read/write performance under load
+## 🚀 Quick Start
 
-## 📁 Project Structure
+### Installation
 
-```
-flexdb/
-├── db.go              # In-memory DB logic and persistence
-├── main.go            # TCP server entry point
-├── server.go          # Client connection and command handling
-benchmark/
-└── ...                # Benchmarking tools (in separate directory)
+```bash
+# Clone the repository
+git clone https://github.com/saketharshraj/flexdb.git
+cd flexdb
+
+# Build the server
+go build -o flexdb cmd/server/main.go
 ```
 
-## 📌 How It Works
+### Running the Server
 
-1. **Data Storage:** Key-value pairs are stored in RAM using a `map[string]string`.
-2. **Persistence:** The entire dataset is periodically flushed to a `data.json` file.
-3. **Write Optimization:** A background goroutine batches disk writes using a write queue, reducing I/O strain.
-4. **TCP Interface:** Clients can connect via `telnet` or `nc` and issue commands like `SET`, `GET`, `DELETE`, etc.
+```bash
+# Run with default settings (port 9000, data.json)
+./flexdb
 
-## 🧪 Supported Commands
+# Run with custom settings
+./flexdb --port 8000 --db custom_data.json
+```
 
-Once connected to the FlexDB server over TCP:
+### Connecting to FlexDB
 
-| Command              | Description                            |
-|----------------------|----------------------------------------|
-| `SET key value`      | Store a value for the given key        |
-| `GET key`            | Retrieve value for a key               |
-| `DELETE key`         | Remove a key-value pair                |
-| `ALL`                | Dump all key-value pairs               |
-| `EXIT`               | Close the connection                   |
+You can use any TCP client like `telnet` or `nc` (netcat):
 
-Example session:
+```bash
+nc localhost 9000
+```
+
+### Example Session
+
 ```
 $ nc localhost 9000
 > SET name harsh
 OK
 > GET name
 harsh
-> DELETE name
+> SET counter 10 60
+OK
+> TTL counter
+60
+> DEL name
+OK
+> GET name
+(nil)
+> FLUSH
 OK
 > EXIT
 Bye 👋
 ```
 
-## 🚀 Getting Started
+## 💡 Features
 
-### ✅ Build and Run the Server
+- 🧠 In-memory key-value store with disk persistence
+- 📦 Support for string data types (with plans for lists and hashes)
+- ⏳ Key expiration (TTL) support
+- ⚡ Simple TCP protocol for client interaction
+- 🛠 Atomic file operations for data safety
+- 📊 Concurrent access with read-write locks
+- 🔄 Background expiration checking
+- 💾 Buffered write system for improved performance
 
-```bash
-go build -o flexdb_server
-./flexdb_server
+## 🧪 Supported Commands
+
+| Command | Description |
+|---------|-------------|
+| `SET <key> <value> [expiry_seconds]` | Set a key-value pair with optional expiration |
+| `GET <key>` | Retrieve value for a key |
+| `DEL <key> [key2...]` | Remove one or more key-value pairs |
+| `EXPIRE <key> <seconds>` | Set expiration on an existing key |
+| `TTL <key>` | Get remaining time to live for a key in seconds |
+| `ALL` | List all key-value pairs |
+| `FLUSH` | Force write to disk |
+| `EXIT` | Close the connection |
+
+## 📌 How It Works
+
+1. **Data Storage:** Key-value pairs are stored in RAM using Go's map structure
+2. **Persistence:** The dataset is periodically flushed to a JSON file
+3. **Write Optimization:** A background goroutine batches disk writes using a write queue
+4. **Expiration:** A background process checks for and removes expired keys
+5. **TCP Interface:** Clients connect via TCP and issue text-based commands
+
+## 🏗️ Architecture
+
+FlexDB follows a modular architecture with clear separation of concerns:
+
+### Core Components
+
+- **Database Engine** (`internal/db/db.go`): Manages the in-memory data store with concurrent access
+- **Persistence Layer** (`internal/db/persistence.go`): Handles saving and loading data to/from disk
+- **Server** (`cmd/server/main.go`): TCP server that accepts client connections
+- **Command Handler** (`internal/server/handler.go`): Processes client commands and returns responses
+
+### Data Flow
+
+1. Client connects to the TCP server
+2. Command handler processes incoming commands
+3. Database engine performs operations on the in-memory store
+4. Changes are queued for persistence
+5. Background workers handle persistence and key expiration
+
+### Concurrency Model
+
+- Read operations use read locks for concurrent access
+- Write operations use write locks to ensure data consistency
+- Background goroutines handle periodic tasks without blocking the main flow
+
+## 📁 Project Structure
+
+```
+flexdb/
+├── cmd/
+│   └── server/        # Server entry point
+│       └── main.go
+├── internal/
+│   ├── db/            # Database implementation
+│   │   ├── db.go
+│   │   └── persistence.go
+│   └── server/        # Connection handling
+│       └── handler.go
+├── data.json          # Default database file
+├── go.mod             # Go module definition
+└── README.md
 ```
 
-The server listens on port `9000` by default.
+## 🔧 Implementation Details
 
-### 🔌 Connect via Terminal
+### Persistence
 
-```bash
-nc localhost 9000
-```
+- Data is stored in a JSON file specified at startup
+- Writes are batched and performed:
+  - Every 2 seconds automatically
+  - When triggered by operations that modify data
+  - When explicitly requested with the `FLUSH` command
+- Atomic file operations prevent data corruption
+
+### TTL (Time-To-Live)
+
+- Keys can be set with an expiration time in seconds
+- A background goroutine checks for expired keys every second
+- The `TTL` command returns the remaining time in seconds
+
+### Data Types
+
+- Currently supports string values
+- Internal architecture is designed to support additional types in the future
 
 ## 📈 Performance Benchmarks
 
-FlexDB includes a benchmarking tool (`/benchmark`) that tests single and multi-client performance under various loads.
-
-Here are the results:
+FlexDB includes a benchmarking tool that tests single and multi-client performance under various loads.
 
 ### 🔹 Test: `100_10_100` (1,000 ops total)
 
@@ -100,17 +180,18 @@ Here are the results:
 
 ✅ **Buffered writes** improved multi-client throughput by **~67%**.
 
-## 🧱 How Persistence Works
+## 📈 Performance Considerations
 
-- All `SET` and `DELETE` operations are first written to RAM.
-- A **background write loop** runs every 2 seconds (or on batched triggers) to save the current state to `data.json`.
-- This prevents blocking the main flow on every disk write.
+- Read operations use a read lock for concurrent access
+- Write operations use a write lock to ensure data consistency
+- Buffered writes improve performance by batching disk operations
+- Expired keys are cleaned up in the background
 
 ## 🧰 Developer Notes
 
-- No external database or storage engine used.
-- Entire system built from scratch for educational value.
-- Read/write operations are thread-safe via `sync.RWMutex`.
+- No external dependencies are used for the core functionality
+- The entire system is built from scratch for educational purposes
+- All operations are thread-safe using appropriate locking mechanisms
 
 ## 📅 Roadmap
 
@@ -118,17 +199,19 @@ Here are the results:
 - [x] TCP server for client interaction
 - [x] Buffered write system for persistence
 - [x] Multi-client concurrency support
-- [x] Benchmarking framework
+- [x] TTL (time-to-live) support for keys
+- [ ] Complete Go client library
 - [ ] Append-only log (AOF) for better persistence
-- [ ] TTL (time-to-live) support for keys
-- [ ] Pub/Sub or Watchers
+- [ ] Support for additional data types (Lists, Hashes)
+- [ ] Pub/Sub messaging system
+- [ ] Authentication
 - [ ] CLI tool with command history
-- [ ] Web dashboard for stats & inspection
+- [ ] Web dashboard for stats & monitoring
 
 ## 👨‍💻 Author
 
 Built by [Harsh Raj](https://github.com/saketharshraj) — for learning and fun.  
-Feel free to fork, extend, and break things. ⚙️
+Feel free to fork, extend, and contribute!
 
 ## 📜 License
 
