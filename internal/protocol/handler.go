@@ -23,6 +23,14 @@ func NewHandler(database *db.FlexDB) *Handler {
 	}
 }
 
+func validateArgs(cmd string, args []string, expected int) bool {
+	if len(args) < expected {
+		fmt.Printf("%s requires %d arguments\n", cmd, expected)
+		return false
+	}
+	return true
+}
+
 // HandleConnection processes client commands
 func (h *Handler) HandleConnection(conn net.Conn) {
 	defer conn.Close()
@@ -52,7 +60,7 @@ func (h *Handler) HandleConnection(conn net.Conn) {
 
 		switch cmd {
 		case "SET":
-			if len(args) < 3 {
+			if validateArgs(cmd, args, 3) {
 				writer.WriteString("SET command requires at least two arguments\n")
 				continue
 			}
@@ -73,7 +81,7 @@ func (h *Handler) HandleConnection(conn net.Conn) {
 			h.DB.Set(key, value, expiry)
 			writer.WriteString("OK\n")
 		case "GET":
-			if len(args) < 2 {
+			if validateArgs(cmd, args, 2) {
 				writer.WriteString("GET command requires one argument\n")
 				continue
 			}
@@ -91,7 +99,7 @@ func (h *Handler) HandleConnection(conn net.Conn) {
 			}
 			writer.WriteString("END\n")
 		case "DEL":
-			if len(args) < 2 {
+			if validateArgs(cmd, args, 2) {
 				writer.WriteString("DEL command requires at least one argument\n")
 				continue
 			}
@@ -100,7 +108,7 @@ func (h *Handler) HandleConnection(conn net.Conn) {
 			}
 			writer.WriteString("OK\n")
 		case "EXPIRE":
-			if len(args) < 3 {
+			if validateArgs(cmd, args, 3) {
 				writer.WriteString("EXPIRE command requires two arguments\n")
 				continue
 			}
@@ -113,7 +121,7 @@ func (h *Handler) HandleConnection(conn net.Conn) {
 			h.DB.Expire(key, time.Duration(duration)*time.Second)
 			writer.WriteString("OK\n")
 		case "TTL":
-			if len(args) < 2 {
+			if validateArgs(cmd, args, 2) {
 				writer.WriteString("TTL command requires one argument\n")
 				continue
 			}
