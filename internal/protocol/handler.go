@@ -31,6 +31,18 @@ func validateArgs(cmd string, args []string, expected int) bool {
 	return true
 }
 
+var AVAILABLE_COMMANDS = []string{
+	"SET key value [ttl]  - Set a key with optional TTL in seconds",
+	"GET key              - Get value for a key",
+	"DEL key             - Delete a key",
+	"EXPIRE key seconds   - Set expiration time for a key",
+	"TTL key             - Get remaining time for a key",
+	"ALL                 - List all keys and values",
+	"FLUSH               - Force save to disk",
+	"HELP                - Show this help message",
+	"EXIT                - Close connection",
+}
+
 // HandleConnection processes client commands
 func (h *Handler) HandleConnection(conn net.Conn) {
 	defer conn.Close()
@@ -57,10 +69,9 @@ func (h *Handler) HandleConnection(conn net.Conn) {
 		}
 
 		cmd := strings.ToUpper(args[0])
-
 		switch cmd {
 		case "SET":
-			if validateArgs(cmd, args, 3) {
+			if !validateArgs(cmd, args, 2) {
 				writer.WriteString("SET command requires at least two arguments\n")
 				continue
 			}
@@ -81,7 +92,7 @@ func (h *Handler) HandleConnection(conn net.Conn) {
 			h.DB.Set(key, value, expiry)
 			writer.WriteString("OK\n")
 		case "GET":
-			if validateArgs(cmd, args, 2) {
+			if !validateArgs(cmd, args, 2) {
 				writer.WriteString("GET command requires one argument\n")
 				continue
 			}
@@ -99,7 +110,7 @@ func (h *Handler) HandleConnection(conn net.Conn) {
 			}
 			writer.WriteString("END\n")
 		case "DEL":
-			if validateArgs(cmd, args, 2) {
+			if !validateArgs(cmd, args, 2) {
 				writer.WriteString("DEL command requires at least one argument\n")
 				continue
 			}
@@ -108,7 +119,7 @@ func (h *Handler) HandleConnection(conn net.Conn) {
 			}
 			writer.WriteString("OK\n")
 		case "EXPIRE":
-			if validateArgs(cmd, args, 3) {
+			if !validateArgs(cmd, args, 3) {
 				writer.WriteString("EXPIRE command requires two arguments\n")
 				continue
 			}
@@ -121,7 +132,7 @@ func (h *Handler) HandleConnection(conn net.Conn) {
 			h.DB.Expire(key, time.Duration(duration)*time.Second)
 			writer.WriteString("OK\n")
 		case "TTL":
-			if validateArgs(cmd, args, 2) {
+			if !validateArgs(cmd, args, 2) {
 				writer.WriteString("TTL command requires one argument\n")
 				continue
 			}
@@ -135,7 +146,13 @@ func (h *Handler) HandleConnection(conn net.Conn) {
 		case "FLUSH":
 			h.DB.Flush()
 			writer.WriteString("OK\n")
-
+		
+		case "HELP":
+			writer.WriteString("Available commands:\n\n")
+			for _, cmd := range AVAILABLE_COMMANDS {
+				writer.WriteString(fmt.Sprintf("  %s\n", cmd))
+			}
+			writer.WriteString("\n")
 		case "EXIT":
 			writer.WriteString("Bye 👋\n")
 			writer.Flush()
@@ -145,4 +162,4 @@ func (h *Handler) HandleConnection(conn net.Conn) {
 			writer.WriteString("Unknown command\n")
 		}
 	}
-} 
+}
