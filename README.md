@@ -9,8 +9,8 @@ A lightweight Redis-like in-memory database with persistence, written in Go.
 
 ```bash
 # Clone the repository
-git clone https://github.com/saketharshraj/flexdb.git
-cd flexdb
+git clone https://github.com/saketharshraj/flex-db.git
+cd flex-db
 
 # Build the server
 go build -o flexdb cmd/server/main.go
