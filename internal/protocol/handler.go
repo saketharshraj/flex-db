@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/saketharshraj/flexdb/internal/db"
+	"flex-db/internal/db"
 )
 
 // Handler manages client connections

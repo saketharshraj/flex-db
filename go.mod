@@ -1,3 +1,3 @@
-module github.com/saketharshraj/flexdb
+module flex-db
 
 go 1.20

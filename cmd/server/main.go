@@ -8,8 +8,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/saketharshraj/flexdb/internal/db"
-	"github.com/saketharshraj/flexdb/internal/server"
+	"flex-db/internal/db"
+	"flex-db/internal/protocol"
 )
 
 func main() {
@@ -20,7 +20,7 @@ func main() {
 
 	// Initialize database
 	database := db.NewFlexDB(*dbFile)
-	handler := server.NewHandler(database)
+	handler := protocol.NewHandler(database)
 
 	// Set up signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
