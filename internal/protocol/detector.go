@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"bufio"
+	"flex-db/internal/resp"
 	"io"
 	"net"
 )
@@ -27,7 +28,7 @@ func DetectProtocol(conn net.Conn) (ProtocolType, *bufio.Reader, error) {
 
 	// check for resp
 	switch b[0] {
-	case SimpleString, Error, Integer, BulkString, Array:
+	case resp.SimpleString, resp.Error, resp.Integer, resp.BulkString, resp.Array:
 		return RESPProtocol, reader, nil
 	default:
 		return TextProtocol, reader, nil
