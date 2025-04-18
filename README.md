@@ -34,7 +34,7 @@ You can use any TCP client like `telnet` or `nc` (netcat):
 nc localhost 9000
 ```
 
-### Example Session
+### Example Session (Text Protocol)
 
 ```
 $ nc localhost 9000
@@ -56,12 +56,25 @@ OK
 Bye 👋
 ```
 
+### Example Session (RESP Protocol)
+
+```
+$ redis-cli -p 9000
+127.0.0.1:9000> SET name "harsh"
+OK
+127.0.0.1:9000> GET name
+"harsh"
+127.0.0.1:9000> PING
+PONG
+```
+
 ## 💡 Features
 
 - 🧠 In-memory key-value store with disk persistence
 - 📦 Support for string data types (with plans for lists and hashes)
 - ⏳ Key expiration (TTL) support
-- ⚡ Simple TCP protocol for client interaction
+- ⚡ Dual protocol support: Simple text protocol and RESP (Redis protocol)
+- 🔄 Protocol auto-detection for client compatibility
 - 🛠 Atomic file operations for data safety
 - 📊 Concurrent access with read-write locks
 - 🔄 Background expiration checking
@@ -78,6 +91,8 @@ Bye 👋
 | `TTL <key>` | Get remaining time to live for a key in seconds |
 | `ALL` | List all key-value pairs |
 | `FLUSH` | Force write to disk |
+| `PING` | Test connection (RESP protocol) |
+| `HELP` | Show available commands |
 | `EXIT` | Close the connection |
 
 ## 📌 How It Works
@@ -86,7 +101,8 @@ Bye 👋
 2. **Persistence:** The dataset is periodically flushed to a JSON file
 3. **Write Optimization:** A background goroutine batches disk writes using a write queue
 4. **Expiration:** A background process checks for and removes expired keys
-5. **TCP Interface:** Clients connect via TCP and issue text-based commands
+5. **Protocol Support:** Automatic detection between text and RESP protocols
+6. **TCP Interface:** Clients connect via TCP and issue commands in either protocol
 
 ## 🏗️ Architecture
 
@@ -97,15 +113,17 @@ FlexDB follows a modular architecture with clear separation of concerns:
 - **Database Engine** (`internal/db/db.go`): Manages the in-memory data store with concurrent access
 - **Persistence Layer** (`internal/db/persistence.go`): Handles saving and loading data to/from disk
 - **Server** (`cmd/server/main.go`): TCP server that accepts client connections
-- **Command Handler** (`internal/server/handler.go`): Processes client commands and returns responses
+- **Protocol Handler** (`internal/protocol/handler.go`): Detects and processes client protocols
+- **RESP Implementation** (`internal/resp/resp.go`): Redis protocol parser and serializer
 
 ### Data Flow
 
 1. Client connects to the TCP server
-2. Command handler processes incoming commands
-3. Database engine performs operations on the in-memory store
-4. Changes are queued for persistence
-5. Background workers handle persistence and key expiration
+2. Protocol detector identifies the client protocol (text or RESP)
+3. Appropriate handler processes incoming commands
+4. Database engine performs operations on the in-memory store
+5. Changes are queued for persistence
+6. Background workers handle persistence and key expiration
 
 ### Concurrency Model
 
@@ -124,14 +142,25 @@ flexdb/
 │   ├── db/            # Database implementation
 │   │   ├── db.go
 │   │   └── persistence.go
+│   ├── protocol/      # Protocol handling
+│   │   ├── detector.go
+│   │   ├── handler.go
+│   │   └── resp_handler.go
+│   ├── resp/          # RESP protocol implementation
+│   │   └── resp.go
 │   └── server/        # Connection handling
-│       └── handler.go
 ├── data.json          # Default database file
 ├── go.mod             # Go module definition
 └── README.md
 ```
 
 ## 🔧 Implementation Details
+
+### Protocol Support
+
+- **Text Protocol**: Simple line-based protocol for human interaction
+- **RESP Protocol**: Redis Serialization Protocol for Redis client compatibility
+- **Auto-detection**: Server automatically detects which protocol the client is using
 
 ### Persistence
 
@@ -200,6 +229,7 @@ FlexDB includes a benchmarking tool that tests single and multi-client performan
 - [x] Buffered write system for persistence
 - [x] Multi-client concurrency support
 - [x] TTL (time-to-live) support for keys
+- [x] RESP (Redis protocol) support
 - [ ] Complete Go client library
 - [ ] Append-only log (AOF) for better persistence
 - [ ] Support for additional data types (Lists, Hashes)
