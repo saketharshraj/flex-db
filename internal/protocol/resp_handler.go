@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -55,6 +56,7 @@ func (h *Handler) HandleRESPConnection(conn net.Conn, reader *bufio.Reader) {
 
 // command executor and returns a RESP value
 func (h *Handler) executeCommand(cmd string, args []resp.Value) resp.Value {
+	cmd = strings.ToUpper(cmd)
 	switch cmd {
 	case "PING":
 		if len(args) == 0 {
