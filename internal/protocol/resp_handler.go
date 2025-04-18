@@ -115,6 +115,74 @@ func (h *Handler) executeCommand(cmd string, args []resp.Value) resp.Value {
 		}
 
 		return resp.NewBulkString(fmt.Sprintf("%v", value))
+	
+	case "DEL":
+		if len(args) < 1 {
+			return resp.NewError("ERR wrong number of arguments for 'del' command")
+		}
+
+		for _, arg := range args {
+			h.DB.Delete(arg.Str)
+		}
+
+		return resp.NewSimpleString("OK")
+	
+	case "EXPIRE":
+		if len(args)!= 2 {
+			return resp.NewError("ERR wrong number of a rguments for 'expire' command")
+		}
+
+		key := args[0].Str
+		duration, err := strconv.ParseInt(args[1].Str, 10, 64)
+		if err != nil {
+			return resp.NewError("ERR invalid duration format")
+		}
+
+		h.DB.Expire(key, time.Duration(duration)*time.Second)
+		return resp.NewSimpleString("OK")
+
+	case "TTL":
+		if len(args) != 1 {
+			return resp.NewError("ERR wrong number of arguments for 'ttl' command")
+		}
+		key := args[0].Str
+		duration, err := h.DB.TTL(key)
+		if err !=  nil {
+			return resp.NewInteger(-1)
+		}
+
+		return resp.NewInteger(int64(duration.Seconds()))
+	
+	case "ALL":
+		all := h.DB.All()
+		result := resp.Value{
+			Type: resp.Array,
+			Array: make([]resp.Value, 0, len(all)*2),
+		}
+
+		for k, v := range all {
+			result.Array = append(result.Array, resp.NewBulkString(k))
+			result.Array = append(result.Array, resp.NewBulkString(fmt.Sprintf("%v", v)))
+		}
+
+		return result
+
+	case "FLUSH":
+		h.DB.Flush()
+		return resp.NewSimpleString("OK")
+	
+	case "HELP":
+		helpArray := resp.Value{
+			Type: resp.Array,
+			Array: make([]resp.Value, len(AVAILABLE_COMMANDS)),
+		}
+
+		for i, helperText := range AVAILABLE_COMMANDS {
+			helpArray.Array[i] = resp.NewBulkString(helperText)
+		}
+
+		return helpArray
+
 	default:
 		return resp.NewError(fmt.Sprintf("ERR unknow command %s", cmd))
 	}
