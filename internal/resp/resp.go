@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 )
 
 // RESP data types
@@ -111,7 +112,7 @@ func Parse(reader *bufio.Reader) (Value, error) {
 		return parseArray(reader)
 	default:
 		reader.UnreadByte()
-		return parseSimpleString(reader)
+		return parseInlineCommand(reader)
 	}
 }
 
@@ -210,6 +211,25 @@ func parseArray(reader *bufio.Reader) (Value, error) {
 			return Value{}, err
 		}
 		items = append(items, item)
+	}
+
+	return Value{Type: Array, Array: items}, nil
+}
+
+func parseInlineCommand(reader *bufio.Reader) (Value, error) {
+	line, err := readLine(reader)
+	if err != nil {
+		return Value{}, err
+	}
+
+	parts := strings.Fields(line)
+	if len(parts) == 0 {
+		return Value{}, ErrInvalidSyntax
+	}
+
+	items := make([]Value, len(parts))
+	for i, part := range parts {
+		items[i] = NewBulkString(part)
 	}
 
 	return Value{Type: Array, Array: items}, nil
