@@ -163,8 +163,8 @@ func (h *Handler) executeCommand(cmd string, args []resp.Value) resp.Value {
 		}
 
 		for k, v := range all {
-			result.Array = append(result.Array, resp.NewBulkString(k))
-			result.Array = append(result.Array, resp.NewBulkString(fmt.Sprintf("%v", v)))
+			formattedString := fmt.Sprintf("%s : %v", k, v)
+			result.Array = append(result.Array, resp.NewBulkString(formattedString))
 		}
 
 		return result

@@ -51,6 +51,9 @@ func Marshal(v Value) []byte {
 			return []byte("*-1\r\n")
 		}
 		result := []byte(fmt.Sprintf("*%d\r\n", len(v.Array)))
+		for _, item := range v.Array {
+			result = append(result, Marshal(item)...)
+		}
 		return result
 	default:
 		return []byte{}
