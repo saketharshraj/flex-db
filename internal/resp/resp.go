@@ -56,6 +56,42 @@ func Marshal(v Value) []byte {
 	}
 }
 
+// NewSimpleString creates a new RESP simple string
+func NewSimpleString(str string) Value {
+	return Value{Type: SimpleString, Str: str}
+}
+
+// NewError creates a new RESP error
+func NewError(str string) Value {
+	return Value{Type: Error, Str: str}
+}
+
+// NewInteger creates a new RESP integer
+func NewInteger(val int64) Value {
+	return Value{Type: Integer, Int: val}
+}
+
+// NewBulkString creates a new RESP bulk string
+func NewBulkString(str string) Value {
+	return Value{Type: BulkString, Str: str}
+}
+
+// NewNullBulkString creates a new null RESP bulk string
+func NewNullBulkString() Value {
+	return Value{Type: BulkString, Null: true}
+}
+
+// NewArray creates a new RESP array
+func NewArray(items []Value) Value {
+	return Value{Type: Array, Array: items}
+}
+
+// NewNullArray creates a new null RESP array
+func NewNullArray() Value {
+	return Value{Type: Array, Null: true}
+}
+
+
 func Parse(reader *bufio.Reader) (Value, error) {
 	b, err := reader.ReadByte()
 	if err != nil {
