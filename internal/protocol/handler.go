@@ -43,14 +43,29 @@ var AVAILABLE_COMMANDS = []string{
 	"EXIT                 - Close connection",
 }
 
-// HandleConnection processes client commands
 func (h *Handler) HandleConnection(conn net.Conn) {
+	protocolType, reader, err := DetectProtocol(conn)
+	if err != nil {
+		fmt.Printf("Error detecting protocol: %v\n", err)
+		conn.Close()
+		return
+	}
+
+	switch protocolType {
+	case RESPProtocol:
+		h.HandleRESPConnection(conn, reader)
+	case TextProtocol:
+		h.HandleTextConnection(conn, reader)
+	}
+}
+
+// HandleConnection processes client commands
+func (h *Handler) HandleTextConnection(conn net.Conn, reader *bufio.Reader) {
 	defer conn.Close()
 	addr := conn.RemoteAddr().String()
 	fmt.Printf("[+] Client connected: %s\n", addr)
 	defer fmt.Printf("[-] Client disconnected: %s\n", addr)
 
-	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)
 
 	for {
