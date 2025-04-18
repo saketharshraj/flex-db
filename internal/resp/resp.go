@@ -1,8 +1,9 @@
-package protocol
+package resp
 
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"io"
 	"strconv"
 )
@@ -23,12 +24,6 @@ type Value struct {
 	Array []Value
 	Null  bool
 }
-
-// Common RESP errors
-var (
-	ErrInvalidSyntax = errors.New("invalid RESP syntax")
-	ErrNotRESP       = errors.New("not a RESP message")
-)
 
 func Parse(reader *bufio.Reader) (Value, error) {
 	b, err := reader.ReadByte()
