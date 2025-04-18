@@ -25,6 +25,37 @@ type Value struct {
 	Null  bool
 }
 
+// Common RESP errors
+var (
+	ErrInvalidSyntax = errors.New("invalid RESP syntax")
+	ErrNotRESP       = errors.New("not a RESP message")
+)
+
+// util func to convert a value to its RESP wire format
+func Marshal(v Value) []byte {
+	switch v.Type {
+	case SimpleString:
+		return []byte(fmt.Sprintf("+%s\r\n", v.Str))
+	case Error:
+		return []byte(fmt.Sprintf("+%s\r\n", v.Str))
+	case Integer:
+		return []byte(fmt.Sprintf("+%d\r\n", v.Int))
+	case BulkString:
+		if v.Null {
+			return []byte("$-1\r\n")
+		}
+		return []byte(fmt.Sprintf("$%d\r\n%s\r\n", len(v.Str), v.Str))
+	case Array:
+		if v.Null {
+			return []byte("*-1\r\n")
+		}
+		result := []byte(fmt.Sprintf("*%d\r\n", len(v.Array)))
+		return result
+	default:
+		return []byte{}
+	}
+}
+
 func Parse(reader *bufio.Reader) (Value, error) {
 	b, err := reader.ReadByte()
 	if err != nil {
