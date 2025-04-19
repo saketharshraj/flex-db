@@ -2,6 +2,7 @@ package db
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -27,17 +28,45 @@ type FlexDB struct {
 	lock       sync.RWMutex
 	file       string
 	writeQueue chan struct{}
+	aof        *AOFPersistence  // if nil, AOF is not enabled
+}
+
+type Option func(*FlexDB)
+
+func WithAOF(aofPath string, syncPolicy AOFSyncPolicy) Option {
+	return func(db *FlexDB) {
+		aof, err := NewAOFPersistence(db, aofPath, syncPolicy)
+		if err != nil {
+			fmt.Printf("Failed to initialize AOF: %v\n", err)
+			return
+		}
+
+		db.aof = aof
+	}
 }
 
 // NewFlexDB initializes DB and loads data from disk
-func NewFlexDB(filename string) *FlexDB {
+func NewFlexDB(filename string, options ...Option) *FlexDB {
 	db := &FlexDB{
 		data:       make(map[string]Value),
 		file:       filename,
 		writeQueue: make(chan struct{}, 100),
 	}
 
+	for _, option := range options {
+		option(db)
+	}
+
+	// Load data from JSON first -> snapshot loads faster
 	db.load()
+
+	// if AOF is enabled and exists, replay it to get the latest state
+	if db.aof != nil && db.aof.enabled {
+		if err := db.aof.LoadAOF(); err != nil {
+			fmt.Printf("Error loading AOF: %v\n", err)
+		}
+	}
+
 	go db.writeLoop()
 	go db.expirationChecker()
 	return db
