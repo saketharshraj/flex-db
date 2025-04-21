@@ -181,8 +181,92 @@ func (aof *AOFPersistence) LoadAOF() error {
 				}
 			}
 			aof.db.setWithoutLogging(key, value, expiry)
+		case "EXPIRE":
+			if len(args) != 2 {
+				continue
+			}
+
+			key := args[0]
+			seconds, err := utils.ParseInt(args[1])
+
+			if err != nil {
+				continue
+			}
+
+			aof.db.expireWithoutLogging(key, time.Duration(seconds)*time.Second)
+		
+		case "FLUSH":
+			// no need for flush while replaying AOF
+			continue
 		}
 	}
+
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("error scanning AOF file: %w", err)
+	}
+
+	return nil
+}
+
+
+
+// RewriteAOF compacts the AOF file by writing only commands needed for current state
+func (aof *AOFPersistence) RewriteAOF() error {
+	aof.mu.Lock()
+	defer aof.mu.Unlock()
+
+	tempFile := aof.filePath + ".rewrite"
+	file, err := os.Create(tempFile)
+	if err != nil {
+		return fmt.Errorf("failed to create temporary file for AOF rewrite: %w", err)
+	}
+	writer := bufio.NewWriter(file)
+
+	snapshot := aof.db.All()
+
+	// Write SET commands for all current keys
+	for key, value := range snapshot {
+		// Get TTL if any
+		ttl, err := aof.db.TTL(key)
+		var ttlArg string
+		if err == nil && ttl > 0 {
+			ttlArg = fmt.Sprintf(" %d", int(ttl.Seconds()))
+		}
+
+		cmd := fmt.Sprintf("SET %s %v%s\n", key, value, ttlArg)
+		if _, err := writer.WriteString(cmd); err != nil {
+			file.Close()
+			return fmt.Errorf("failed to write to temporary AOF file: %w", err)
+		}
+	}
+
+	// Flush and sync
+	if err := writer.Flush(); err != nil {
+		file.Close()
+		return fmt.Errorf("failed to flush temporary AOF file: %w", err)
+	}
+	if err := file.Sync(); err != nil {
+		file.Close()
+		return fmt.Errorf("failed to sync temporary AOF file: %w", err)
+	}
+	file.Close()
+
+	aof.sync()
+	aof.file.Close()
+
+	// Replace old file with new one
+	if err := os.Rename(tempFile, aof.filePath); err != nil {
+		return fmt.Errorf("failed to replace AOF file: %w", err)
+	}
+
+	// Reopen the AOF file
+	file, err = os.OpenFile(aof.filePath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to reopen AOF file: %w", err)
+	}
+
+	aof.file = file
+	aof.writer = bufio.NewWriter(file)
 
 	return nil
 }
