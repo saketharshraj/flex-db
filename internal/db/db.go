@@ -45,6 +45,29 @@ func WithAOF(aofPath string, syncPolicy AOFSyncPolicy) Option {
 	}
 }
 
+func (db *FlexDB) setWithoutLogging(key string, value string, expiration *time.Time) {
+	db.data[key] = Value{
+		Type: TypeString,
+		Data: value,
+		Expiration: expiration,
+	}
+}
+
+func (db *FlexDB) deleteWithoutLogging(key string) {
+	delete(db.data, key)
+}
+
+func (db *FlexDB) expireWithoutLogging(key string, duration time.Duration) {
+	val, ok := db.data[key]
+	if !ok {
+		return
+	}
+
+	expiry := time.Now().Add(duration)
+	val.Expiration = &expiry
+	db.data[key] = val
+}
+
 // NewFlexDB initializes DB and loads data from disk
 func NewFlexDB(filename string, options ...Option) *FlexDB {
 	db := &FlexDB{
