@@ -2,6 +2,7 @@ package db
 
 import (
 	"bufio"
+	"flex-db/internal/utils"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -63,6 +64,40 @@ func NewAOFPersistence(db *FlexDB, filePath string, syncPolicy AOFSyncPolicy) (*
 	return aof, nil
 }
 
+func (aof *AOFPersistence) LogCommand(cmd string, args ...string) error {
+	if !aof.enabled {
+		return nil
+	}
+
+	aof.mu.Lock()
+	defer aof.mu.Unlock()
+
+	// format the command before writing for AOF
+	var sb strings.Builder
+	sb.WriteString(cmd)
+	for _, arg := range args {
+		if strings.Contains(arg, " ") {
+			sb.WriteString("\"")
+			sb.WriteString(cmd)
+			sb.WriteString("\"")
+		} else {
+			sb.WriteString(arg)
+		}
+	}
+	sb.WriteString("\n")
+
+	if _, err := aof.writer.WriteString(sb.String()); err != nil {
+		return fmt.Errorf("failed to write to AOF buffer: %w", err)
+	}
+
+	if aof.syncPolicy == AOFSyncAlways {
+		if err := aof.sync(); err != nil {
+			return fmt.Errorf("failed to sync AOF: %w", err)
+		}
+	}
+
+	return nil
+}
 
 func (aof *AOFPersistence) sync() error {
 	if err := aof.writer.Flush(); err != nil {
@@ -123,6 +158,29 @@ func (aof *AOFPersistence) LoadAOF() error {
 
 		if len(parts) == 0 {
 			continue
+		}
+
+		// execute the command
+		cmd := strings.ToUpper(parts[0])
+		args := parts[1:]
+
+		switch cmd {
+		case "SET":
+			if len(args) < 2{
+				continue
+			}
+			key := args[0]
+			value := args[1]
+
+			var expiry *time.Time
+			if len(args) >= 3 {
+				seconds, err := utils.ParseInt(args[2])
+				if err == nil {
+					t := time.Now().Add(time.Duration(seconds) * time.Second)
+					expiry = &t
+				}
+			}
+			aof.db.setWithoutLogging(key, value, expiry)
 		}
 	}
 
