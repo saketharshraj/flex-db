@@ -148,10 +148,20 @@ func (db *FlexDB) Set(key string, value string, expiration *time.Time) {
 	db.lock.Lock()
 	defer db.lock.Unlock()
 
-	db.data[key] = Value{
-		Type:       TypeString,
-		Data:       value,
-		Expiration: expiration,
+	db.setWithoutLogging(key, value, expiration)
+
+	// log to aof if enabled
+	if db.aof != nil  && db.aof.enabled {
+		var args []string
+		args = append(args, key, value)
+		if expiration != nil {
+			seconds := int64(time.Until(*expiration).Seconds())
+			args = append(args, fmt.Sprintf("%d", seconds))
+		}
+
+		if err := db.aof.LogCommand("SET", args...); err != nil {
+			fmt.Printf("Error logging to AOF: %v\n", err)
+		}
 	}
 	db.triggerWrite()
 }
