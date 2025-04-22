@@ -24,6 +24,12 @@ go build -o flexdb cmd/server/main.go
 
 # Run with custom settings
 ./flexdb --port 8000 --db custom_data.json
+
+# Run with AOF enabled
+./flexdb --aof --aof-file data.aof --aof-sync everysec
+
+# Run with custom settings and AOF
+./flexdb --port 8000 --db custom_data.json --aof --aof-file custom.aof --aof-sync always
 ```
 
 ### Connecting to FlexDB
@@ -79,6 +85,7 @@ PONG
 - 📊 Concurrent access with read-write locks
 - 🔄 Background expiration checking
 - 💾 Buffered write system for improved performance
+- 📝 Append-Only File (AOF) persistence for improved durability
 
 ## 🧪 Supported Commands
 
@@ -91,6 +98,7 @@ PONG
 | `TTL <key>` | Get remaining time to live for a key in seconds |
 | `ALL` | List all key-value pairs |
 | `FLUSH` | Force write to disk |
+| `BGREWRITE` | Rewrite the AOF file in the background |
 | `PING` | Test connection (RESP protocol) |
 | `HELP` | Show available commands |
 | `EXIT` | Close the connection |
@@ -98,11 +106,27 @@ PONG
 ## 📌 How It Works
 
 1. **Data Storage:** Key-value pairs are stored in RAM using Go's map structure
-2. **Persistence:** The dataset is periodically flushed to a JSON file
+2. **Persistence Options:**
+   - **JSON Snapshots:** The dataset is periodically flushed to a JSON file
+   - **AOF Persistence:** Each write operation is logged to an append-only file
 3. **Write Optimization:** A background goroutine batches disk writes using a write queue
 4. **Expiration:** A background process checks for and removes expired keys
 5. **Protocol Support:** Automatic detection between text and RESP protocols
 6. **TCP Interface:** Clients connect via TCP and issue commands in either protocol
+
+### Persistence
+
+- **JSON Persistence:**
+  - Data is stored in a JSON file specified at startup
+  - Writes are batched and performed every 2 seconds automatically
+
+- **AOF Persistence:**
+  - Each write command is logged to an append-only file
+  - Three sync policies available:
+    - `always`: Sync after every write (safest, slowest)
+    - `everysec`: Sync once per second (good balance)
+    - `no`: Let the OS handle syncing (fastest, least safe)
+  - AOF can be rewritten/compacted with the `BGREWRITE` command
 
 ## 🏗️ Architecture
 
@@ -230,8 +254,7 @@ FlexDB includes a benchmarking tool that tests single and multi-client performan
 - [x] Multi-client concurrency support
 - [x] TTL (time-to-live) support for keys
 - [x] RESP (Redis protocol) support
-- [ ] Complete Go client library
-- [ ] Append-only log (AOF) for better persistence
+- [x] Append-only log (AOF) for better persistence
 - [ ] Support for additional data types (Lists, Hashes)
 - [ ] Pub/Sub messaging system
 - [ ] Authentication

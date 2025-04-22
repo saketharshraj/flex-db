@@ -2,6 +2,7 @@ package db
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -27,17 +28,73 @@ type FlexDB struct {
 	lock       sync.RWMutex
 	file       string
 	writeQueue chan struct{}
+	aof        *AOFPersistence  // if nil, AOF is not enabled
+}
+
+type Option func(*FlexDB)
+
+func WithAOF(aofPath string, syncPolicy AOFSyncPolicy) Option {
+	return func(db *FlexDB) {
+		aof, err := NewAOFPersistence(db, aofPath, syncPolicy)
+		if err != nil {
+			fmt.Printf("Failed to initialize AOF: %v\n", err)
+			return
+		}
+
+		db.aof = aof
+		
+		// Load existing data from AOF if available
+		if err := aof.LoadAOF(); err != nil {
+			fmt.Printf("Failed to load data from AOF: %v\n", err)
+		}
+	}
+}
+
+func (db *FlexDB) setWithoutLogging(key string, value string, expiration *time.Time) {
+	db.data[key] = Value{
+		Type: TypeString,
+		Data: value,
+		Expiration: expiration,
+	}
+}
+
+func (db *FlexDB) deleteWithoutLogging(key string) {
+	delete(db.data, key)
+}
+
+func (db *FlexDB) expireWithoutLogging(key string, duration time.Duration) {
+	val, ok := db.data[key]
+	if !ok {
+		return
+	}
+
+	expiry := time.Now().Add(duration)
+	val.Expiration = &expiry
+	db.data[key] = val
 }
 
 // NewFlexDB initializes DB and loads data from disk
-func NewFlexDB(filename string) *FlexDB {
+func NewFlexDB(filename string, options ...Option) *FlexDB {
 	db := &FlexDB{
 		data:       make(map[string]Value),
 		file:       filename,
 		writeQueue: make(chan struct{}, 100),
 	}
 
+	for _, option := range options {
+		option(db)
+	}
+
+	// Load data from JSON first -> snapshot loads faster
 	db.load()
+
+	// if AOF is enabled and exists, replay it to get the latest state
+	if db.aof != nil && db.aof.enabled {
+		if err := db.aof.LoadAOF(); err != nil {
+			fmt.Printf("Error loading AOF: %v\n", err)
+		}
+	}
+
 	go db.writeLoop()
 	go db.expirationChecker()
 	return db
@@ -96,10 +153,20 @@ func (db *FlexDB) Set(key string, value string, expiration *time.Time) {
 	db.lock.Lock()
 	defer db.lock.Unlock()
 
-	db.data[key] = Value{
-		Type:       TypeString,
-		Data:       value,
-		Expiration: expiration,
+	db.setWithoutLogging(key, value, expiration)
+
+	// log to aof if enabled
+	if db.aof != nil  && db.aof.enabled {
+		var args []string
+		args = append(args, key, value)
+		if expiration != nil {
+			seconds := int64(time.Until(*expiration).Seconds())
+			args = append(args, fmt.Sprintf("%d", seconds))
+		}
+
+		if err := db.aof.LogCommand("SET", args...); err != nil {
+			fmt.Printf("Error logging to AOF: %v\n", err)
+		}
 	}
 	db.triggerWrite()
 }
@@ -137,7 +204,14 @@ func (db *FlexDB) Delete(key string) error {
 	if _, ok := db.data[key]; !ok {
 		return errors.New("key not found")
 	}
-	delete(db.data, key)
+	db.deleteWithoutLogging(key)
+
+	// log to AOF
+	if db.aof != nil && db.aof.enabled {
+		if err := db.aof.LogCommand("DEL", key); err != nil {
+			fmt.Printf("Error logging to AOF: %v\n", err)
+		}
+	}
 	db.triggerWrite()
 	return nil
 }
@@ -171,6 +245,13 @@ func (db *FlexDB) Expire(key string, duration time.Duration) error {
 	expiry := time.Now().Add(duration)
 	val.Expiration = &expiry
 	db.data[key] = val
+
+	// log to AOF if enabled
+	if db.aof != nil && db.aof.enabled {
+		if err := db.aof.LogCommand("EXPIRE", key, fmt.Sprintf("%d", int64(duration.Seconds()))); err != nil {
+			fmt.Printf("Error logging to AOF: %v\n", err)
+		}
+	}
 	db.triggerWrite()
 	return nil
 }
@@ -196,4 +277,31 @@ func (db *FlexDB) TTL(key string) (time.Duration, error) {
 
 func (db *FlexDB) Flush() {
 	db.save()
+
+	// if AOF is enabled
+	if db.aof != nil  &&  db.aof.enabled {
+		if err := db.aof.sync(); err != nil {
+			fmt.Printf("Error syncing AOF: %v\n", err)
+		}
+	}
+}
+
+// for rewriting the AOF
+func (db *FlexDB) RewriteAOF() error {
+	if db.aof == nil || !db.aof.enabled {
+		return errors.New("AOF not enabled")
+	}
+	return db.aof.RewriteAOF()
+}
+
+
+func (db *FlexDB) Close() {
+	db.Flush()
+
+	// close AOF too, if enabled
+	if db.aof == nil || !db.aof.enabled {
+		if err := db.aof.Close(); err != nil {
+			fmt.Printf("Error closing AOF: %v\n", err)
+		}
+	}
 }
