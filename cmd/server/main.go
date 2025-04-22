@@ -16,10 +16,37 @@ func main() {
 	// Command line flags
 	port := flag.Int("port", 9000, "Port to listen on")
 	dbFile := flag.String("db", "data.json", "Database file path")
+
+	// AOF configuration
+	enableAOF := flag.Bool("aof", false, "Enable persistence")
+	aofFile := flag.String("aof-file", "flexdb.aof", "AOF file path")
+	aofSyncPolicy := flag.String("aof-sync", "everySec", "AOF sync policy: always, everySec, no")
 	flag.Parse()
 
+	//add AOF options if enabled
+	var options []db.Option
+
+	if *enableAOF {
+		var syncPolicy db.AOFSyncPolicy
+
+		switch *aofSyncPolicy {
+		case "always":
+			syncPolicy = db.AOFSyncAlways
+		case "everySec":
+			syncPolicy = db.AOFSyncEverySecond
+		case "no":
+			syncPolicy = db.AOFSyncNever
+		default:
+			fmt.Printf("Invalid AOF sync policy: %s, using 'everySec'\n", *aofSyncPolicy)
+			syncPolicy = db.AOFSyncEverySecond
+		}
+		
+		options = append(options, db.WithAOF(*aofFile, syncPolicy))
+		fmt.Printf("AOF persistnece enabled with file: %s, sync policy: %s\n", *aofFile, *aofSyncPolicy )
+	}
+
 	// Initialize database
-	database := db.NewFlexDB(*dbFile)
+	database := db.NewFlexDB(*dbFile, options...)
 	handler := protocol.NewHandler(database)
 
 	// Set up signal handling for graceful shutdown
