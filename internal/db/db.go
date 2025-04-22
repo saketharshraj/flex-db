@@ -42,6 +42,11 @@ func WithAOF(aofPath string, syncPolicy AOFSyncPolicy) Option {
 		}
 
 		db.aof = aof
+		
+		// Load existing data from AOF if available
+		if err := aof.LoadAOF(); err != nil {
+			fmt.Printf("Failed to load data from AOF: %v\n", err)
+		}
 	}
 }
 

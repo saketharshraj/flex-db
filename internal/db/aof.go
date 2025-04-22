@@ -33,7 +33,7 @@ const (
 	AOFSyncNever
 )
 
-// To create a new AOF p ersistence manager
+// To create a new AOF persistence manager
 func NewAOFPersistence(db *FlexDB, filePath string, syncPolicy AOFSyncPolicy) (*AOFPersistence, error) {
 	aof := &AOFPersistence{
 		db:         db,
@@ -44,8 +44,11 @@ func NewAOFPersistence(db *FlexDB, filePath string, syncPolicy AOFSyncPolicy) (*
 
 	// create directory if it doesn't exist
 	dir := filepath.Dir(filePath)
-	if err := os.Mkdir(dir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create directory for AOF: %w", err)
+	if dir != "." {
+		// Only try to create the directory if it's not the current directory
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create directory for AOF: %w", err)
+		}
 	}
 
 	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
