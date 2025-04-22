@@ -272,4 +272,31 @@ func (db *FlexDB) TTL(key string) (time.Duration, error) {
 
 func (db *FlexDB) Flush() {
 	db.save()
+
+	// if AOF is enabled
+	if db.aof != nil  &&  db.aof.enabled {
+		if err := db.aof.sync(); err != nil {
+			fmt.Printf("Error syncing AOF: %v\n", err)
+		}
+	}
+}
+
+// for rewriting the AOF
+func (db *FlexDB) RewriteAOF() error {
+	if db.aof == nil || !db.aof.enabled {
+		return errors.New("AOF not enabled")
+	}
+	return db.aof.RewriteAOF()
+}
+
+
+func (db *FlexDB) Close() {
+	db.Flush()
+
+	// close AOF too, if enabled
+	if db.aof == nil || !db.aof.enabled {
+		if err := db.aof.Close(); err != nil {
+			fmt.Printf("Error closing AOF: %v\n", err)
+		}
+	}
 }
