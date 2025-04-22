@@ -173,6 +173,14 @@ func (h *Handler) executeCommand(cmd string, args []resp.Value) resp.Value {
 		h.DB.Flush()
 		return resp.NewSimpleString("OK")
 	
+	case "BGREWRITE":
+		go func() {
+			if err := h.DB.RewriteAOF(); err != nil {
+				fmt.Printf("Error rewriting AOF: %v\n", err)
+			}
+		}()
+		return resp.NewSimpleString("Background Rewrite started")
+	
 	case "HELP":
 		helpArray := resp.Value{
 			Type: resp.Array,

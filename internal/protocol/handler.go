@@ -39,6 +39,7 @@ var AVAILABLE_COMMANDS = []string{
 	"TTL key              - Get remaining time for a key",
 	"ALL                  - List all keys and values",
 	"FLUSH                - Force save to disk",
+	"BGREWRITE 			  - Rewrite the AOF file in the background", 
 	"HELP                 - Show this help message",
 	"EXIT                 - Close connection",
 }
@@ -161,6 +162,14 @@ func (h *Handler) HandleTextConnection(conn net.Conn, reader *bufio.Reader) {
 		case "FLUSH":
 			h.DB.Flush()
 			writer.WriteString("OK\n")
+		
+		case "BGREWRITE":
+			go func() {
+				if err := h.DB.RewriteAOF(); err != nil {
+					fmt.Printf("Error rewriting AOF: %v\n", err)
+				}
+			}()
+			writer.WriteString("Background rewrite started\n")
 		
 		case "HELP":
 			writer.WriteString("Available commands:\n\n")
