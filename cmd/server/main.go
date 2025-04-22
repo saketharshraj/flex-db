@@ -32,7 +32,7 @@ func main() {
 		switch *aofSyncPolicy {
 		case "always":
 			syncPolicy = db.AOFSyncAlways
-		case "everySec":
+		case "everysec", "everySec": 
 			syncPolicy = db.AOFSyncEverySecond
 		case "no":
 			syncPolicy = db.AOFSyncNever
@@ -42,7 +42,7 @@ func main() {
 		}
 		
 		options = append(options, db.WithAOF(*aofFile, syncPolicy))
-		fmt.Printf("AOF persistnece enabled with file: %s, sync policy: %s\n", *aofFile, *aofSyncPolicy )
+		fmt.Printf("AOF persistence enabled with file: %s, sync policy: %s\n", *aofFile, *aofSyncPolicy)
 	}
 
 	// Initialize database

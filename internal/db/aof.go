@@ -79,6 +79,7 @@ func (aof *AOFPersistence) LogCommand(cmd string, args ...string) error {
 	var sb strings.Builder
 	sb.WriteString(cmd)
 	for _, arg := range args {
+		sb.WriteString(" ")  // space between command and argument
 		if strings.Contains(arg, " ") {
 			sb.WriteString("\"")
 			sb.WriteString(cmd)
