@@ -199,7 +199,14 @@ func (db *FlexDB) Delete(key string) error {
 	if _, ok := db.data[key]; !ok {
 		return errors.New("key not found")
 	}
-	delete(db.data, key)
+	db.deleteWithoutLogging(key)
+
+	// log to AOF
+	if db.aof != nil && db.aof.enabled {
+		if err := db.aof.LogCommand("DEL", key); err != nil {
+			fmt.Printf("Error logging to AOF: %v\n", err)
+		}
+	}
 	db.triggerWrite()
 	return nil
 }
@@ -233,6 +240,13 @@ func (db *FlexDB) Expire(key string, duration time.Duration) error {
 	expiry := time.Now().Add(duration)
 	val.Expiration = &expiry
 	db.data[key] = val
+
+	// log to AOF if enabled
+	if db.aof != nil && db.aof.enabled {
+		if err := db.aof.LogCommand("EXPIRE", key, fmt.Sprintf("%d", int64(duration.Seconds()))); err != nil {
+			fmt.Printf("Error logging to AOF: %v\n", err)
+		}
+	}
 	db.triggerWrite()
 	return nil
 }
