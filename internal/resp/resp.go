@@ -36,21 +36,21 @@ var (
 func Marshal(v Value) []byte {
 	switch v.Type {
 	case SimpleString:
-		return []byte(fmt.Sprintf("+%s\r\n", v.Str))
+		return fmt.Appendf(nil, "+%s\r\n", v.Str)
 	case Error:
-		return []byte(fmt.Sprintf("+%s\r\n", v.Str))
+		return fmt.Appendf(nil, "+%s\r\n", v.Str)
 	case Integer:
-		return []byte(fmt.Sprintf("+%d\r\n", v.Int))
+		return fmt.Appendf(nil, "+%d\r\n", v.Int)
 	case BulkString:
 		if v.Null {
 			return []byte("$-1\r\n")
 		}
-		return []byte(fmt.Sprintf("$%d\r\n%s\r\n", len(v.Str), v.Str))
+		return fmt.Appendf(nil, "$%d\r\n%s\r\n", len(v.Str), v.Str)
 	case Array:
 		if v.Null {
 			return []byte("*-1\r\n")
 		}
-		result := []byte(fmt.Sprintf("*%d\r\n", len(v.Array)))
+		result := fmt.Appendf(nil, "*%d\r\n", len(v.Array))
 		for _, item := range v.Array {
 			result = append(result, Marshal(item)...)
 		}
@@ -94,7 +94,6 @@ func NewArray(items []Value) Value {
 func NewNullArray() Value {
 	return Value{Type: Array, Null: true}
 }
-
 
 func Parse(reader *bufio.Reader) (Value, error) {
 	b, err := reader.ReadByte()
