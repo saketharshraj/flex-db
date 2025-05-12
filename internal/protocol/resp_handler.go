@@ -57,6 +57,13 @@ func (h *Handler) HandleRESPConnection(conn net.Conn, reader *bufio.Reader) {
 // command executor and returns a RESP value
 func (h *Handler) executeCommand(cmd string, args []resp.Value) resp.Value {
 	cmd = strings.ToUpper(cmd)
+
+	handler, exists := h.registry.Get(cmd)
+	if !exists {
+		return resp.NewError(fmt.Sprintf("ERR unknown command '%s'", cmd))
+	}
+	return handler(h, args)
+	
 	switch cmd {
 	case "PING":
 		if len(args) == 0 {
@@ -105,6 +112,7 @@ func (h *Handler) executeCommand(cmd string, args []resp.Value) resp.Value {
 
 		h.DB.Set(key, value, expiry)
 		return resp.NewSimpleString("OK")
+	
 	case "GET":
 		if len(args) != 1 {
 			return resp.NewError("ERR wrong number of arguments for 'get' command")

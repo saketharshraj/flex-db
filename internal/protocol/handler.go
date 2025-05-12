@@ -14,12 +14,14 @@ import (
 // Handler manages client connections
 type Handler struct {
 	DB *db.FlexDB
+	registry *CommandRegistry
 }
 
 // NewHandler creates a new command handler
 func NewHandler(database *db.FlexDB) *Handler {
 	return &Handler{
 		DB: database,
+		registry: NewCommandRegistry(),
 	}
 }
 
