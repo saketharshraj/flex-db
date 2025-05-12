@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"flex-db/internal/resp"
+	"fmt"
 	"strconv"
 	"time"
 )
@@ -10,6 +11,7 @@ import (
 func (r *CommandRegistry) registerCoreCommands() {
 	r.Register("PING", pingCommand)
 	r.Register("SET", setCommand)
+	r.Register("GET", getCommand)
 }
 
 func pingCommand(h *Handler, args []resp.Value) resp.Value {
@@ -61,4 +63,21 @@ func setCommand(h *Handler, args []resp.Value) resp.Value {
 
 	h.DB.Set(key, value, expiry)
 	return resp.NewSimpleString("OK")
+}
+
+
+func getCommand(h *Handler, args []resp.Value) resp.Value {
+	if len(args) < 1 {
+		return resp.NewError("ERR key is required to access the data")
+	}
+
+	key := args[0].Str
+
+	val, err := h.DB.Get(key)
+	if err != nil {
+		return resp.NewError(err.Error())
+	}
+
+	return resp.NewBulkString(fmt.Sprintf("%v", val))
+
 }
