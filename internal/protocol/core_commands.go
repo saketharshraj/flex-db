@@ -13,6 +13,7 @@ func (r *CommandRegistry) registerCoreCommands() {
 	r.Register("SET", setCommand)
 	r.Register("GET", getCommand)
 	r.Register("DEL", deleteCommand)
+	r.Register("EXPIRE", expireCommand)
 }
 
 func pingCommand(h *Handler, args []resp.Value) resp.Value {
@@ -95,5 +96,21 @@ func deleteCommand(h *Handler, args []resp.Value) resp.Value {
 		return resp.NewError(err.Error())
 	}
 
+	return resp.NewSimpleString("OK")
+}
+
+func expireCommand(h *Handler, args []resp.Value) resp.Value {
+	if len(args) < 2 {
+		return resp.NewError("ERR key and expire time is required")
+	}
+
+	key := args[0].Str
+	duration, err := strconv.ParseInt(args[1].Str, 10, 64)
+
+	if err != nil {
+		return resp.NewError("ERR invalid duration format")
+	}
+
+	h.DB.Expire(key, time.Duration(duration) * time.Second)
 	return resp.NewSimpleString("OK")
 }
