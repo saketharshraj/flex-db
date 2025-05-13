@@ -14,6 +14,11 @@ func (r *CommandRegistry) registerCoreCommands() {
 	r.Register("GET", getCommand)
 	r.Register("DEL", deleteCommand)
 	r.Register("EXPIRE", expireCommand)
+	r.Register("TTL", ttlCommand)
+	r.Register("ALL", allCommand)
+	r.Register("FLUSH", flushCommand)
+	r.Register("BGREWRITEAOF", bgrewriteCommand)
+	r.Register("HELP", helpCommand)
 }
 
 func pingCommand(h *Handler, args []resp.Value) resp.Value {
@@ -113,4 +118,62 @@ func expireCommand(h *Handler, args []resp.Value) resp.Value {
 
 	h.DB.Expire(key, time.Duration(duration) * time.Second)
 	return resp.NewSimpleString("OK")
+}
+
+func ttlCommand(h *Handler, args []resp.Value) resp.Value {
+	if len(args) < 1 {
+		return resp.NewError("ERR specify key to fetch its TTL")
+	}
+
+	key := args[0].Str
+
+	duration, err :=  h.DB.TTL(key)
+	if err != nil {
+		return resp.NewSimpleString(err.Error())
+	}
+
+	return resp.NewInteger(int64(duration.Seconds()))
+}
+
+func allCommand(h *Handler, args []resp.Value) resp.Value {
+	all := h.DB.All()
+
+	result := resp.Value{
+		Type: resp.Array,
+		Array: make([]resp.Value, 0, len(all)*2),
+	}
+
+	for k,v := range all {
+		formattedString := fmt.Sprintf("%s : %v", k, v)
+		result.Array = append(result.Array, resp.NewBulkString(formattedString))
+	}
+
+	return result
+}
+
+func flushCommand(h *Handler, args []resp.Value) resp.Value {
+	h.DB.Flush()
+	return resp.NewSimpleString("OK")
+}
+
+func bgrewriteCommand(h *Handler, args []resp.Value) resp.Value {
+	go func () {
+		if err := h.DB.RewriteAOF(); err != nil {
+			fmt.Printf("Error rewriting AOF: %v\n", err)
+		}
+	}()
+	return resp.NewSimpleString("Background Rewrite started")
+}
+
+func helpCommand(h *Handler, args []resp.Value) resp.Value {
+	helpArray := resp.Value{
+		Type: resp.Array,
+		Array: make([]resp.Value, len(AVAILABLE_COMMANDS)),
+	}
+
+	for i, helperText := range AVAILABLE_COMMANDS {
+		helpArray.Array[i] = resp.NewBulkString(helperText)
+	}
+
+	return helpArray
 }
