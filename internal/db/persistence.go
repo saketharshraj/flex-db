@@ -2,6 +2,7 @@ package db
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"time"
@@ -51,7 +52,39 @@ func (db *FlexDB) load() {
 				continue
 			}
 		}
-		
+
+		// When unmarshaling the data, we need to handle type conversions
+		switch v.Type {
+		case TypeList:
+			// Convert []interface{} to []string
+			if list, ok := v.Data.([]interface{}); ok {
+				stringList := make([]string, len(list))
+				for i, v := range list {
+					if str, ok := v.(string); ok {
+						stringList[i] = str
+					} else {
+						// Handle non-string values if needed
+						stringList[i] = fmt.Sprintf("%v", v)
+					}
+				}
+				v.Data = stringList
+			}
+		case TypeString:
+			// Handle string type
+			if str, ok := v.Data.(string); ok {
+				v.Data = str
+			}
+		case TypeHash:
+			// Handle hash type
+			if hash, ok := v.Data.(map[string]interface{}); ok {
+				stringHash := make(map[string]string)
+				for k, v := range hash {
+					stringHash[k] = fmt.Sprintf("%v", v)
+				}
+				v.Data = stringHash
+			}
+		}
+
 		db.data[k] = Value{
 			Type:       v.Type,
 			Data:       v.Data,
@@ -72,11 +105,11 @@ func (db *FlexDB) save() {
 			Type: v.Type,
 			Data: v.Data,
 		}
-		
+
 		if v.Expiration != nil {
 			pv.Expiration = v.Expiration.Unix()
 		}
-		
+
 		tempData[k] = pv
 	}
 
@@ -84,7 +117,7 @@ func (db *FlexDB) save() {
 	if err != nil {
 		return
 	}
-	
+
 	// Use atomic file write to prevent corruption
 	tempFile := db.file + ".tmp"
 	if err := os.WriteFile(tempFile, bytes, 0644); err != nil {
