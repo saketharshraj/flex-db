@@ -16,6 +16,7 @@ func NewCommandRegistry() *CommandRegistry {
 
 	// register all commands
 	registry.registerCoreCommands()
+	registry.registerListCommands()
 
 	return registry
 }
