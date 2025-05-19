@@ -79,10 +79,10 @@ func (aof *AOFPersistence) LogCommand(cmd string, args ...string) error {
 	var sb strings.Builder
 	sb.WriteString(cmd)
 	for _, arg := range args {
-		sb.WriteString(" ")  // space between command and argument
+		sb.WriteString(" ") // space between command and argument
 		if strings.Contains(arg, " ") {
 			sb.WriteString("\"")
-			sb.WriteString(cmd)
+			sb.WriteString(arg)
 			sb.WriteString("\"")
 		} else {
 			sb.WriteString(arg)
@@ -111,7 +111,6 @@ func (aof *AOFPersistence) sync() error {
 	return aof.file.Sync()
 }
 
-
 func (aof *AOFPersistence) backgroundSync() {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -127,13 +126,12 @@ func (aof *AOFPersistence) Close() error {
 	aof.mu.Lock()
 	defer aof.mu.Unlock()
 
-	if err := aof.sync();  err != nil {
+	if err := aof.sync(); err != nil {
 		return err
 	}
 
 	return aof.file.Close()
 }
-
 
 func (aof *AOFPersistence) LoadAOF() error {
 	// open file for reading
@@ -170,7 +168,7 @@ func (aof *AOFPersistence) LoadAOF() error {
 
 		switch cmd {
 		case "SET":
-			if len(args) < 2{
+			if len(args) < 2 {
 				continue
 			}
 			key := args[0]
@@ -198,7 +196,7 @@ func (aof *AOFPersistence) LoadAOF() error {
 			}
 
 			aof.db.expireWithoutLogging(key, time.Duration(seconds)*time.Second)
-		
+
 		case "FLUSH":
 			// no need for flush while replaying AOF
 			continue
@@ -211,8 +209,6 @@ func (aof *AOFPersistence) LoadAOF() error {
 
 	return nil
 }
-
-
 
 // RewriteAOF compacts the AOF file by writing only commands needed for current state
 func (aof *AOFPersistence) RewriteAOF() error {
@@ -275,7 +271,6 @@ func (aof *AOFPersistence) RewriteAOF() error {
 	return nil
 }
 
-
 func parseCommandLine(line string) ([]string, error) {
 	var parts []string
 	var current strings.Builder
@@ -287,7 +282,7 @@ func parseCommandLine(line string) ([]string, error) {
 		case c == '"':
 			inQuotes = !inQuotes
 		case c == ' ' && !inQuotes:
-			if current.Len() > 0{
+			if current.Len() > 0 {
 				parts = append(parts, current.String())
 				current.Reset()
 			}

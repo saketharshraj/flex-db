@@ -14,12 +14,14 @@ import (
 // Handler manages client connections
 type Handler struct {
 	DB *db.FlexDB
+	registry *CommandRegistry
 }
 
 // NewHandler creates a new command handler
 func NewHandler(database *db.FlexDB) *Handler {
 	return &Handler{
 		DB: database,
+		registry: NewCommandRegistry(),
 	}
 }
 
@@ -31,18 +33,7 @@ func validateArgs(cmd string, args []string, expected int) bool {
 	return true
 }
 
-var AVAILABLE_COMMANDS = []string{
-	"SET key value [ttl]  - Set a key with optional TTL in seconds",
-	"GET key              - Get value for a key",
-	"DEL key              - Delete a key",
-	"EXPIRE key seconds   - Set expiration time for a key",
-	"TTL key              - Get remaining time for a key",
-	"ALL                  - List all keys and values",
-	"FLUSH                - Force save to disk",
-	"BGREWRITE 			  - Rewrite the AOF file in the background", 
-	"HELP                 - Show this help message",
-	"EXIT                 - Close connection",
-}
+
 
 func (h *Handler) HandleConnection(conn net.Conn) {
 	protocolType, reader, err := DetectProtocol(conn)
