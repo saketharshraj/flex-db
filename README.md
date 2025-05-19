@@ -103,6 +103,32 @@ PONG
 | `HELP` | Show available commands |
 | `EXIT` | Close the connection |
 
+### List Commands
+| Command | Description |
+|---------|-------------|
+| `LPUSH <key> <value> [value...]` | Insert values at the beginning of a list |
+| `RPUSH <key> <value> [value...]` | Append values to the end of a list |
+| `LPOP <key>` | Remove and return the first element of a list |
+| `RPOP <key>` | Remove and return the last element of a list |
+| `LRANGE <key> <start> <stop>` | Get a range of elements from a list |
+| `LLEN <key>` | Get the length of a list |
+| `LINDEX <key> <index>` | Get an element by its index in a list |
+| `LSET <key> <index> <value>` | Set the value of an element by its index |
+| `LREM <key> <count> <value>` | Remove elements from a list |
+| `LTRIM <key> <start> <stop>` | Trim a list to the specified range |
+
+### Hash Commands
+| Command | Description |
+|---------|-------------|
+| `HSET <key> <field> <value>` | Set a field in a hash |
+| `HGET <key> <field>` | Get the value of a field in a hash |
+| `HDEL <key> <field> [field...]` | Remove fields from a hash |
+| `HGETALL <key>` | Get all fields and values in a hash |
+| `HEXISTS <key> <field>` | Check if a field exists in a hash |
+| `HLEN <key>` | Get the number of fields in a hash |
+| `HKEYS <key>` | Get all fields in a hash |
+| `HVALS <key>` | Get all values in a hash |
+
 ## 📌 How It Works
 
 1. **Data Storage:** Key-value pairs are stored in RAM using Go's map structure
@@ -203,8 +229,9 @@ flexdb/
 
 ### Data Types
 
-- Currently supports string values
-- Internal architecture is designed to support additional types in the future
+- **Strings**: Basic key-value pairs with optional expiration
+- **Lists**: Ordered collections of strings with operations for both ends
+- **Hashes**: Field-value pairs within a key, similar to objects/dictionaries
 
 ## 📈 Performance Benchmarks
 
@@ -255,10 +282,9 @@ FlexDB includes a benchmarking tool that tests single and multi-client performan
 - [x] TTL (time-to-live) support for keys
 - [x] RESP (Redis protocol) support
 - [x] Append-only log (AOF) for better persistence
-- [ ] Support for additional data types (Lists, Hashes)
+- [x] Support for Lists & Hashes
 - [ ] Pub/Sub messaging system
 - [ ] Authentication
-- [ ] CLI tool with command history
 - [ ] Web dashboard for stats & monitoring
 
 ## 👨‍💻 Author
